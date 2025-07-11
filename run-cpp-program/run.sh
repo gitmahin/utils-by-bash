@@ -51,8 +51,9 @@ compilerManager(){
         echo ";$file"
     fi
 
+
+    # compile c++
     if [[ "$file_ext" == @(cpp|c++) && -e "$file" ]]; then
-        # compile c++
         g++ "$file" -o "$file_name" 2> /dev/tty || exit 1
 
         # in directory mode
@@ -98,14 +99,15 @@ if ! g++ -v &> /dev/null; then
     echo "$(which g++)"
 fi
 
+# running from here
 IFS=";" read -r folder_name file_name <<< "$(compilerManager "$INPUT_OPTION" "$INPUT_FILE")"
 
-echo "Hello brother -> $folder_name; $file_name"
 if [[ -d "$folder_name" && ! -z "$file_name" ]]; then
     "./$folder_name/$file_name"
 elif [[ -e "$file_name" ]]; then
     "./$file_name"
 else 
-    echo "Given file location not exist"
+    [[ $? == 1 ]] && echo "File not exist or may have been moved!"
+    exit 1
 fi
 set +x
