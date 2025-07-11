@@ -1,5 +1,7 @@
 # !/bin/bash
 shopt -s extglob
+exec 2> debug.log # Ensure this is at the top
+set -x   
 
 file="$2" option="$1"
 
@@ -29,30 +31,7 @@ getFileDivision() {
     return 0
 }
 
-# compileCpp(){
-#     local file="$2" option="$1"
-
-# }
-
-
-compilerManager(){
-    # if file($2) is not provided store option($1) value in file(var)
-    [[ -z "$file" ]] && file="$option"
-
-    IFS=";" read -r file_name file_ext <<< "$(getFileDivision)"
-
-    # check if file not exist
-    if $(isCPPFile); then
-        if [[ ! -e "$file" ]]; then
-            # !!! CAUTION: updating $file here 
-            # swap the file ext and try to find out the file
-            # if file.cpp && not_found; then convert to file.c++ && update
-            # if file.c++ && not_found; then convert to file.cpp && update
-            [[ "$file" == "*.cpp" ]] && file="$file_name.c++" || file="$file_name.cpp"
-        fi
-    fi
-
-
+compileCpp(){
     # compile c++
     # user validation -> isCPPFile
     if $(isCPPFile); then
@@ -67,6 +46,31 @@ compilerManager(){
             return 1
         fi
     fi
+}
+
+compilerManager(){
+    # if file($2) is not provided store option($1) value in file(var)
+    [[ -z "$file" ]] && file="$option"
+
+    IFS=";" read -r file_name file_ext <<< "$(getFileDivision)"
+
+    # check if user given file ext is cpp or c++
+    if $(isCPPFile); then
+        # find the file in the system
+        # if not found try to make virtual file naming
+        if [[ ! -e "$file" ]]; then
+            # !!! CAUTION: updating $file here 
+            # swap the file ext and try to find out the file
+            # if file.cpp && not_found; then convert to file.c++ && update
+            # if file.c++ && not_found; then convert to file.cpp && update
+            [[ "$file" == "*.cpp" ]] && file="$file_name.c++" || file="$file_name.cpp"
+        fi
+    fi
+
+
+    # compile c++
+    # user validation -> isCPPFile
+    compileCpp
 
     # in directory mode
     if [[ "$option" == "-d" ]]; then
@@ -84,17 +88,16 @@ compilerManager(){
             mv -v "$file" "./$folder_name" > /dev/null 2>&1
             mv -v "$file_name" "./$folder_name" > /dev/null 2>&1
 
-            # !!! CAUTION: updating $file_name here 
-            # swap the output file ext and try to execute
-            # if file is not exist it will virtually update the file name to guess the exec file
-            # if also virtual file not found it will return with error
-            if [[ ! -e "./$folder_name/$file_name" ]]; then
-                file_name="$file_name.out"
-                if [[ ! -e "./$folder_name/$file_name" && "./$folder_name/$file_name" != *.out ]]; then 
-                    return 1
-                fi
-            fi
         fi
+    fi
+
+
+    # !!! CAUTION: updating $file_name here 
+    # swap the output file ext and try to execute
+    # if file is not exist it will virtually update the file name to guess the exec file
+
+    if [[ ! -e "./$folder_name/$file_name" || "$option" != "-d" && ! -e "$file_name" ]]; then
+        [[ "./$folder_name/$file_name" == *.out || "$file_name" == *.out ]] && file_name="${file_name%.*}" || file_name="$file_name.out"
     fi
 
     # lastly return the folder_name and file_name
@@ -128,3 +131,5 @@ else
     echo "File not exist or may have been moved!"
     exit 1
 fi
+
+set +x
