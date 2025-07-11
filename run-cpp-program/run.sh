@@ -28,6 +28,7 @@ isCPPFile() {
     [[ "$file" == *.cpp || "$file" == *.c++ ]] && return 0 || return 1
 }
 
+
 compilerManager(){
     local file="$2" option="$1"
 
@@ -38,32 +39,48 @@ compilerManager(){
 
 
     # check if file not exist
-    # swap the file ext and try to find out the file
-
-    
     if $(isCPPFile "$file"); then
         if [[ ! -e "$file" ]]; then
+            # !!! CAUTION: updating $file here 
+            # swap the file ext and try to find out the file
+            # if file.cpp && not_found; then convert to file.c++ && update
+            # if file.c++ && not_found; then convert to file.cpp && update
             [[ "$file" == "*.cpp" ]] && file="$file_name.c++" || file="$file_name.cpp"
         fi
-        else
-            echo ";$file"
+    else
+        echo ";$file"
     fi
 
-    if [[ "$file_ext" == @(cpp|c++) ]]; then
+    if [[ "$file_ext" == @(cpp|c++) && -e "$file" ]]; then
         # compile c++
-        g++ "$file" -o "$file_name" > /dev/null 2>&1
+        g++ "$file" -o "$file_name" 2> /dev/tty || exit 1
+
+        # in directory mode
+    elif [[ "$option" == "-d" ]]; then
+        folder_name="cpp-$file_name"
+        g++ "$folder_name/$file" -o "$file_name" 2> /dev/tty || exit 1
     fi
 
+    # in directory mode
     if [[ "$option" == "-d" ]]; then
-        folder_name="f-$file_name"
-        [[ ! -d "$folder_name" ]] && mkdir "$folder_name" > /dev/null 2>&1
-        # dont move only stderr to null (e.g. 2> /dev/null)
-        # because the mv -v commands also printed to standard output, the entire output captured by $(compilerManager ...)
-        mv -v "$file" "./$folder_name" > /dev/null 2>&1
-        mv -v "$file_name" "./$folder_name" > /dev/null 2>&1
+        folder_name="cpp-$file_name"
+        current_path="$(pwd)"
+        parent_folder="$(basename "$current_path")"
 
-        [[ ! -e "./$folder_name/$file_name" ]] && file_name="$file_name.out" || file_name="${file_name%.*}"
+        # "If the `new folder name` (f-myprogram) is NOT the same as 
+        # the `current dir's name` (my-programe).
+        # if new folder name is same to current dir then dont create & move the folder"
+        if [[ "$folder_name" != "$parent_folder" ]]; then
+            [[ ! -d "$folder_name" ]] && mkdir "$folder_name" > /dev/null 2>&1
+            # dont move only stderr to null (e.g. 2> /dev/null)
+            # because the mv -v commands also printed to standard output, the entire output captured by $(compilerManager ...)
+            mv -v "$file" "./$folder_name" > /dev/null 2>&1
+            mv -v "$file_name" "./$folder_name" > /dev/null 2>&1
 
+            # !!! CAUTION: updating $file_name here 
+            # swap the output file ext and try to execute
+            [[ ! -e "./$folder_name/$file_name" ]] && file_name="$file_name.out"
+        fi
     fi
 
     echo "$folder_name;$file_name"

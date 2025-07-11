@@ -21,21 +21,28 @@
 ++++ [[ mem.prog.cpp == *.cpp ]]
 ++++ return 0
 +++ [[ ! -e mem.prog.cpp ]]
++++ [[ mem.prog.cpp == \*\.\c\p\p ]]
++++ file=mem.prog.cpp
 +++ [[ cpp == @(cpp|c++) ]]
-+++ g++ mem.prog.cpp -o mem.prog
++++ [[ -e mem.prog.cpp ]]
 +++ [[ -d == \-\d ]]
-+++ folder_name=f-mem.prog
-+++ [[ ! -d f-mem.prog ]]
-+++ mkdir f-mem.prog
-+++ mv -v mem.prog.cpp ./f-mem.prog
-+++ mv -v mem.prog ./f-mem.prog
-+++ [[ ! -e ./f-mem.prog/mem.prog ]]
-+++ file_name=mem
-+++ echo 'f-mem.prog;mem'
++++ folder_name=cpp-mem.prog
++++ g++ cpp-mem.prog/mem.prog.cpp -o mem.prog
++++ [[ -d == \-\d ]]
++++ folder_name=cpp-mem.prog
+++++ pwd
++++ current_path=/media/lxxxv/linux_files/workspace/shell-scripting/projects/utils-by-bash/run-cpp-program
+++++ basename /media/lxxxv/linux_files/workspace/shell-scripting/projects/utils-by-bash/run-cpp-program
++++ parent_folder=run-cpp-program
++++ [[ cpp-mem.prog != \r\u\n\-\c\p\p\-\p\r\o\g\r\a\m ]]
++++ [[ ! -d cpp-mem.prog ]]
++++ mv -v mem.prog.cpp ./cpp-mem.prog
++++ mv -v mem.prog ./cpp-mem.prog
++++ [[ ! -e ./cpp-mem.prog/mem.prog ]]
++++ echo 'cpp-mem.prog;mem.prog'
 +++ return 0
-++ echo 'Hello brother -> f-mem.prog; mem'
-++ [[ -d f-mem.prog ]]
-++ [[ ! -z mem ]]
-++ ./f-mem.prog/mem
-./run.sh: line 88: ./f-mem.prog/mem: No such file or directory
+++ echo 'Hello brother -> cpp-mem.prog; mem.prog'
+++ [[ -d cpp-mem.prog ]]
+++ [[ ! -z mem.prog ]]
+++ ./cpp-mem.prog/mem.prog
 ++ set +x
