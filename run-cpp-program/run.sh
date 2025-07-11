@@ -1,8 +1,5 @@
 # !/bin/bash
 shopt -s extglob
-exec 2> debug.log 
-
-set -x
 
 file="$2" option="$1"
 
@@ -12,6 +9,7 @@ avaiableOptions=("-d" "-o")
 [[ -z "$option" && ! " ${avaiableOptions[*]} " =~ [[:space:]]${INPUT_OPTION}[[:space:]] ]] && { echo "Invalid option $INPUT_OPTION"; exit 1; }
 
 isCPPFile() {
+    # user validation
     [[ "$file" == *.cpp || "$file" == *.c++ ]] && return 0 || return 1
 }
 
@@ -56,14 +54,17 @@ compilerManager(){
 
 
     # compile c++
+    # user validation -> isCPPFile
     if $(isCPPFile); then
-        if [[ "$file_ext" == @(cpp|c++) && -e "$file" ]]; then
+        # backend validation -> if file existes
+        if [[ -e "$file" ]]; then
             g++ "$file" -o "$file_name" 2> /dev/tty || exit 1
-
             # in directory mode
-        elif [[ "$option" == "-d" ]]; then
+        elif [[ "$option" == "-d" && ! -e "$file" ]]; then
             folder_name="cpp-$file_name"
             g++ "$folder_name/$file" -o "$file_name" 2> /dev/tty || exit 1
+        else
+            return 1
         fi
     fi
 
@@ -77,7 +78,7 @@ compilerManager(){
         # the `current dir's name` (my-programe).
         # if new folder name is same to current dir then dont create & move the folder"
         if [[ "$folder_name" != "$parent_folder" ]]; then
-            [[ ! -d "$folder_name" ]] && mkdir "$folder_name" > /dev/null 2>&1
+            [[ ! -d "$folder_name" && -e "$file" && -e "$file_name" ]] && mkdir "$folder_name" > /dev/null 2>&1
             # dont move only stderr to null (e.g. 2> /dev/null)
             # because the mv -v commands also printed to standard output, the entire output captured by $(compilerManager ...)
             mv -v "$file" "./$folder_name" > /dev/null 2>&1
@@ -85,9 +86,13 @@ compilerManager(){
 
             # !!! CAUTION: updating $file_name here 
             # swap the output file ext and try to execute
+            # if file is not exist it will virtually update the file name to guess the exec file
+            # if also virtual file not found it will return with error
             if [[ ! -e "./$folder_name/$file_name" ]]; then
-                 file_name="$file_name.out"
-                [[ ! -e "./$folder_name/$file_name" ]] && return 1
+                file_name="$file_name.out"
+                if [[ ! -e "./$folder_name/$file_name" && "./$folder_name/$file_name" != *.out ]]; then 
+                    return 1
+                fi
             fi
         fi
     fi
@@ -112,12 +117,13 @@ IFS=";" read -r folder_name file_name <<< "$(compilerManager)"
 
 echo "hello brotehr -> $folder_name; -> $file_name"
 
-if [[ -d "$folder_name" && ! -z "$file_name" ]]; then
+if [[ -d "$folder_name" && -e "$folder_name/$file_name" ]]; then
     "./$folder_name/$file_name"
 elif [[ -e "$file_name" ]]; then
     "./$file_name"
+elif [[ -z "$folder_name" && -z "$file_name" ]]; then
+    exit 1
 else 
-    [[ $? == 1 ]] && echo "File not exist or may have been moved!"
+    echo "File not exist or may have been moved!"
     exit 1
 fi
-set +x
