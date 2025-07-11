@@ -3,43 +3,48 @@ shopt -s extglob
 exec 2> debug.log 
 
 set -x
-INPUT_OPTION=$1
-INPUT_FILE=$2
+
+file="$2" option="$1"
 
 avaiableOptions=("-d" "-o")
 
 # check input options
-[[ -z "$INPUT_OPTION" && ! " ${avaiableOptions[*]} " =~ [[:space:]]${INPUT_OPTION}[[:space:]] ]] && { echo "Invalid option $INPUT_OPTION"; exit 1; }
-
-getFileDivision() {
-    file="$1"
-    # get value before the last .*
-    file_name="${file%.*}"
-
-    # get value after the last *.
-    file_ext="${file##*.}"
-
-    echo "$file_name;$file_ext"
-    return 0
-}
+[[ -z "$option" && ! " ${avaiableOptions[*]} " =~ [[:space:]]${INPUT_OPTION}[[:space:]] ]] && { echo "Invalid option $INPUT_OPTION"; exit 1; }
 
 isCPPFile() {
-    file="$1"
     [[ "$file" == *.cpp || "$file" == *.c++ ]] && return 0 || return 1
 }
 
+getFileDivision() {
+
+    if ! $(isCPPFile) ;then
+        echo "$file;"
+    else
+        # get value before the last .*
+        file_name="${file%.*}"
+
+        # get value after the last *.
+        file_ext="${file##*.}"
+
+        echo "$file_name;$file_ext"
+    fi
+    return 0
+}
+
+# compileCpp(){
+#     local file="$2" option="$1"
+
+# }
+
 
 compilerManager(){
-    local file="$2" option="$1"
-
     # if file($2) is not provided store option($1) value in file(var)
     [[ -z "$file" ]] && file="$option"
 
-    IFS=";" read -r file_name file_ext <<< "$(getFileDivision "$file")"
-
+    IFS=";" read -r file_name file_ext <<< "$(getFileDivision)"
 
     # check if file not exist
-    if $(isCPPFile "$file"); then
+    if $(isCPPFile); then
         if [[ ! -e "$file" ]]; then
             # !!! CAUTION: updating $file here 
             # swap the file ext and try to find out the file
@@ -47,19 +52,19 @@ compilerManager(){
             # if file.c++ && not_found; then convert to file.cpp && update
             [[ "$file" == "*.cpp" ]] && file="$file_name.c++" || file="$file_name.cpp"
         fi
-    else
-        echo ";$file"
     fi
 
 
     # compile c++
-    if [[ "$file_ext" == @(cpp|c++) && -e "$file" ]]; then
-        g++ "$file" -o "$file_name" 2> /dev/tty || exit 1
+    if $(isCPPFile); then
+        if [[ "$file_ext" == @(cpp|c++) && -e "$file" ]]; then
+            g++ "$file" -o "$file_name" 2> /dev/tty || exit 1
 
-        # in directory mode
-    elif [[ "$option" == "-d" ]]; then
-        folder_name="cpp-$file_name"
-        g++ "$folder_name/$file" -o "$file_name" 2> /dev/tty || exit 1
+            # in directory mode
+        elif [[ "$option" == "-d" ]]; then
+            folder_name="cpp-$file_name"
+            g++ "$folder_name/$file" -o "$file_name" 2> /dev/tty || exit 1
+        fi
     fi
 
     # in directory mode
@@ -80,7 +85,10 @@ compilerManager(){
 
             # !!! CAUTION: updating $file_name here 
             # swap the output file ext and try to execute
-            [[ ! -e "./$folder_name/$file_name" ]] && file_name="$file_name.out"
+            if [[ ! -e "./$folder_name/$file_name" ]]; then
+                 file_name="$file_name.out"
+                [[ ! -e "./$folder_name/$file_name" ]] && return 1
+            fi
         fi
     fi
 
@@ -100,7 +108,9 @@ if ! g++ -v &> /dev/null; then
 fi
 
 # running from here
-IFS=";" read -r folder_name file_name <<< "$(compilerManager "$INPUT_OPTION" "$INPUT_FILE")"
+IFS=";" read -r folder_name file_name <<< "$(compilerManager)"
+
+echo "hello brotehr -> $folder_name; -> $file_name"
 
 if [[ -d "$folder_name" && ! -z "$file_name" ]]; then
     "./$folder_name/$file_name"
