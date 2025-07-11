@@ -1,0 +1,41 @@
+++ INPUT_OPTION=-d
+++ INPUT_FILE=mem.prog.cpp
+++ avaiableOptions=("-d" "-o")
+++ [[ -z -d ]]
+++ g++ -v
+++ IFS=';'
+++ read -r folder_name file_name
++++ compilerManager -d mem.prog.cpp
++++ local file=mem.prog.cpp option=-d
++++ [[ -z mem.prog.cpp ]]
++++ IFS=';'
++++ read -r file_name file_ext
+++++ getFileDivision mem.prog.cpp
+++++ file=mem.prog.cpp
+++++ file_name=mem.prog
+++++ file_ext=cpp
+++++ echo 'mem.prog;cpp'
+++++ return 0
+++++ isCPPFile mem.prog.cpp
+++++ file=mem.prog.cpp
+++++ [[ mem.prog.cpp == *.cpp ]]
+++++ return 0
++++ [[ ! -e mem.prog.cpp ]]
++++ [[ cpp == @(cpp|c++) ]]
++++ g++ mem.prog.cpp -o mem.prog
++++ [[ -d == \-\d ]]
++++ folder_name=f-mem.prog
++++ [[ ! -d f-mem.prog ]]
++++ mkdir f-mem.prog
++++ mv -v mem.prog.cpp ./f-mem.prog
++++ mv -v mem.prog ./f-mem.prog
++++ [[ ! -e ./f-mem.prog/mem.prog ]]
++++ file_name=mem
++++ echo 'f-mem.prog;mem'
++++ return 0
+++ echo 'Hello brother -> f-mem.prog; mem'
+++ [[ -d f-mem.prog ]]
+++ [[ ! -z mem ]]
+++ ./f-mem.prog/mem
+./run.sh: line 88: ./f-mem.prog/mem: No such file or directory
+++ set +x
