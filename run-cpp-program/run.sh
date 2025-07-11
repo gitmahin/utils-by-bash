@@ -24,30 +24,34 @@ is_o_mode=0
 
 
 getOption() {
+    # find the option starting with hyphen
+    if [[ "$option" == -* ]]; then
+        # Remove the hyphen for easier parsing
+        parsed_options="${option:1}"
 
-if [[ "$option" == -* ]]; then
-    # Remove the leading hyphen for easier parsing
-    parsed_options="${option:1}"
+        # =~ check if the string "cp" is found anywhere within parsed_options
+        [[ "$parsed_options" =~ "cp" ]] && is_cp_mode=1 || return 1
 
-    [[ "$parsed_options" =~ "cp" ]] && is_cp_mode=1 || return 1
+        [[ "$parsed_options" =~ "d" ]] && is_d_mode=1 || return 1
 
-    [[ "$parsed_options" =~ "d" ]] && is_d_mode=1 || return 1
-
-    [[ "$parsed_options" =~ "o" ]] && is_o_mode=1 || return 1
-
-
-fi
-
+        [[ "$parsed_options" =~ "o" ]] && is_o_mode=1 || return 1
+    fi
 }
-    # [[ $? == 1 ]] && { echo "Invalid option"; exit 1; }
 
+# call the function
+getOption
+# [[ $? == 1 ]] && { echo "Invalid options"; exit 1; }
+
+# cpp file validation
 isCPPFile() {
     # user validation
     [[ "$file" == *.cpp || "$file" == *.c++ ]] && return 0 || return 1
 }
 
+# extract file_name and file_ext from core file 
 getFileDivision() {
 
+    # if name doesn't indicate to cpp file pass the file as it is
     if ! $(isCPPFile) ;then
         echo "$file;"
     else
@@ -62,6 +66,7 @@ getFileDivision() {
     return 0
 }
 
+# cpp code compiler
 compileCpp(){
     # compile c++
     # user validation -> isCPPFile
@@ -69,7 +74,7 @@ compileCpp(){
         # backend validation -> if file existes
         if [[ -e "$file" ]]; then
             g++ "$file" -o "$file_name" 2> /dev/tty || exit 1
-            # in directory mode
+        # in directory mode
         elif [[ "$is_d_mode" == 1 && ! -e "$file" ]]; then
             folder_name="cpp-$file_name"
             g++ "$folder_name/$file" -o "$file_name" 2> /dev/tty || exit 1
@@ -79,6 +84,7 @@ compileCpp(){
     fi
 }
 
+# processor
 compilerManager(){
     local compile_start_ns=$(date +%s%N)
     
@@ -99,7 +105,6 @@ compilerManager(){
             [[ "$file" == "*.cpp" ]] && file="$file_name.c++" || file="$file_name.cpp"
         fi
     fi
-
 
     # compile c++
     # user validation -> isCPPFile
@@ -154,53 +159,53 @@ fi
 
 
 if [[ "$is_cp_mode" == 1 ]]; then
+    # shift -> for not to include options as a file 
     shift
     declare -A job_outputs
     for file_type in "$@"; do
+        # making temp file to track out from compilerManger
         temp_output_file=$(mktemp)
-               # Start time for this individual compilation in nanoseconds
+        # Start time for this individual compilation in nanoseconds
         loop_start_ns=$(date +%s%N)
-   
 
         (
             file="$file_type"
+            # redirect the both stdout & stderr to temp file
             compilerManager > "$temp_output_file" 2>&1
         ) &
         
         loop_end_ns=$(date +%s%N)
-        # Calculate duration in nanoseconds
+        # calculate duration in nanoseconds
         duration_ns=$(( loop_end_ns - loop_start_ns ))
-        # Convert nanoseconds to milliseconds (integer division)
+        # convert nanoseconds to milliseconds (integer division)
         duration_ms=$(( duration_ns / 1000000 ))
         echo "[Started in: $duration_ms ms] => $file_type"
+        # adding to the array
         job_outputs["$file_type"]="$temp_output_file"
     done
 
-    # Wait for all background jobs to complete
+    # wait form compilation
     wait
     
     # Process the results from temporary files
     for file_type in "$@"; do
         temp_output_file="${job_outputs["$file_type"]}"
         
-        if [[ -s "$temp_output_file" ]]; then 
-         
+        if [[ -s "$temp_output_file" ]]; then
             compile_time_ms="$(tail -n 1 "$temp_output_file")"
             echo "[$file_type] => Compiled success in $compile_time_ms ms!"
         else
             echo "[$file_type] => Compilation failed or no output!"
         fi
         
-        # Clean up the temporary file
+        # remove the temporary file
         rm -f "$temp_output_file"
     done
     exit 0
 fi
 
-# running from here
-IFS=";" read -r folder_name file_name <<< "$(compilerManager)"
 
-echo "hello brotehr -> $folder_name; -> $file_name"
+IFS=";" read -r folder_name file_name <<< "$(compilerManager)"
 
 if [[ -d "$folder_name" && -e "$folder_name/$file_name" ]]; then
     "./$folder_name/$file_name"
