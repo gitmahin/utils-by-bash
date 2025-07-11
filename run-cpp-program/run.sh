@@ -97,6 +97,7 @@ compilerManager(){
         fi
     fi
 
+    # lastly return the folder_name and file_name
     echo "$folder_name;$file_name"
     return 0
 }
