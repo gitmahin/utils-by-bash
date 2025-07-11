@@ -1,14 +1,45 @@
 # !/bin/bash
 shopt -s extglob
-exec 2> debug.log # Ensure this is at the top
-set -x   
 
-file="$2" option="$1"
+# measuring compilation starting time
+start_time_ns=$(date +%s%N)
 
-avaiableOptions=("-d" "-o")
+# user inputs globally
+option="$1"
+file="$2"
+
+avaiableOptions=("-d" "-o" "-cp")
+
+# cp -> compile in parallel
+is_cp_mode=0
+
+# d -> merge .out and .cpp file into directory
+is_d_mode=0
+
+# o -> run only output file
+is_o_mode=0
 
 # check input options
 [[ -z "$option" && ! " ${avaiableOptions[*]} " =~ [[:space:]]${INPUT_OPTION}[[:space:]] ]] && { echo "Invalid option $INPUT_OPTION"; exit 1; }
+
+
+getOption() {
+
+if [[ "$option" == -* ]]; then
+    # Remove the leading hyphen for easier parsing
+    parsed_options="${option:1}"
+
+    [[ "$parsed_options" =~ "cp" ]] && is_cp_mode=1 || return 1
+
+    [[ "$parsed_options" =~ "d" ]] && is_d_mode=1 || return 1
+
+    [[ "$parsed_options" =~ "o" ]] && is_o_mode=1 || return 1
+
+
+fi
+
+}
+    # [[ $? == 1 ]] && { echo "Invalid option"; exit 1; }
 
 isCPPFile() {
     # user validation
@@ -39,7 +70,7 @@ compileCpp(){
         if [[ -e "$file" ]]; then
             g++ "$file" -o "$file_name" 2> /dev/tty || exit 1
             # in directory mode
-        elif [[ "$option" == "-d" && ! -e "$file" ]]; then
+        elif [[ "$is_d_mode" == 1 && ! -e "$file" ]]; then
             folder_name="cpp-$file_name"
             g++ "$folder_name/$file" -o "$file_name" 2> /dev/tty || exit 1
         else
@@ -49,6 +80,8 @@ compileCpp(){
 }
 
 compilerManager(){
+    local compile_start_ns=$(date +%s%N)
+    
     # if file($2) is not provided store option($1) value in file(var)
     [[ -z "$file" ]] && file="$option"
 
@@ -73,7 +106,7 @@ compilerManager(){
     compileCpp
 
     # in directory mode
-    if [[ "$option" == "-d" ]]; then
+    if [[ "$is_d_mode" == 1 ]]; then
         folder_name="cpp-$file_name"
         current_path="$(pwd)"
         parent_folder="$(basename "$current_path")"
@@ -95,13 +128,16 @@ compilerManager(){
     # !!! CAUTION: updating $file_name here 
     # swap the output file ext and try to execute
     # if file is not exist it will virtually update the file name to guess the exec file
-
-    if [[ ! -e "./$folder_name/$file_name" || "$option" != "-d" && ! -e "$file_name" ]]; then
+    if [[ ! -e "./$folder_name/$file_name" || "$is_d_mode" == 0 && ! -e "$file_name" ]]; then
         [[ "./$folder_name/$file_name" == *.out || "$file_name" == *.out ]] && file_name="${file_name%.*}" || file_name="$file_name.out"
     fi
 
+    # End timing for compilation here
+    local compile_end_ns=$(date +%s%N)
+    local compile_duration_ms=$(( (compile_end_ns - compile_start_ns) / 1000000 ))
+
     # lastly return the folder_name and file_name
-    echo "$folder_name;$file_name"
+    [[ "$is_cp_mode" == 0 ]] && echo "$folder_name;$file_name" || echo "$compile_duration_ms"
     return 0
 }
 
@@ -114,6 +150,51 @@ if ! g++ -v &> /dev/null; then
     echo "RUN: sudo apt-get install build-essential gdb"
     sudo apt-get install build-essential gdb
     echo "$(which g++)"
+fi
+
+
+if [[ "$is_cp_mode" == 1 ]]; then
+    shift
+    declare -A job_outputs
+    for file_type in "$@"; do
+        temp_output_file=$(mktemp)
+               # Start time for this individual compilation in nanoseconds
+        loop_start_ns=$(date +%s%N)
+   
+
+        (
+            file="$file_type"
+            compilerManager > "$temp_output_file" 2>&1
+        ) &
+        
+        loop_end_ns=$(date +%s%N)
+        # Calculate duration in nanoseconds
+        duration_ns=$(( loop_end_ns - loop_start_ns ))
+        # Convert nanoseconds to milliseconds (integer division)
+        duration_ms=$(( duration_ns / 1000000 ))
+        echo "[Started in: $duration_ms ms] => $file_type"
+        job_outputs["$file_type"]="$temp_output_file"
+    done
+
+    # Wait for all background jobs to complete
+    wait
+    
+    # Process the results from temporary files
+    for file_type in "$@"; do
+        temp_output_file="${job_outputs["$file_type"]}"
+        
+        if [[ -s "$temp_output_file" ]]; then 
+         
+            compile_time_ms="$(tail -n 1 "$temp_output_file")"
+            echo "[$file_type] => Compiled success in $compile_time_ms ms!"
+        else
+            echo "[$file_type] => Compilation failed or no output!"
+        fi
+        
+        # Clean up the temporary file
+        rm -f "$temp_output_file"
+    done
+    exit 0
 fi
 
 # running from here
@@ -131,5 +212,3 @@ else
     echo "File not exist or may have been moved!"
     exit 1
 fi
-
-set +x
