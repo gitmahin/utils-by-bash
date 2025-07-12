@@ -30,17 +30,26 @@ getOption() {
         parsed_options="${option:1}"
 
         # =~ check if the string "cp" is found anywhere within parsed_options
-        [[ "$parsed_options" =~ "cp" ]] && is_cp_mode=1 || return 1
+        if [[ "$parsed_options" =~ "cp" ]]; then  
+            is_cp_mode=1
+        fi
 
-        [[ "$parsed_options" =~ "d" ]] && is_d_mode=1 || return 1
+        if [[ "$parsed_options" =~ "d" ]]; then
+            is_d_mode=1
+        fi
 
-        [[ "$parsed_options" =~ "o" ]] && is_o_mode=1 || return 1
+        if [[ "$parsed_options" =~ "o" ]]; then 
+            is_o_mode=1 
+        fi
+
+        else
+            return 1
     fi
 }
 
 # call the function
 getOption
-# [[ $? == 1 ]] && { echo "Invalid options"; exit 1; }
+[[ $? == 1 ]] && { echo "Invalid options"; exit 1; }
 
 # cpp file validation
 isCPPFile() {
@@ -158,62 +167,78 @@ if ! g++ -v &> /dev/null; then
 fi
 
 
-if [[ "$is_cp_mode" == 1 ]]; then
-    # shift -> for not to include options as a file 
-    shift
-    declare -A job_outputs
-    for file_type in "$@"; do
-        # making temp file to track out from compilerManger
-        temp_output_file=$(mktemp)
-        # Start time for this individual compilation in nanoseconds
-        loop_start_ns=$(date +%s%N)
+case "$is_cp_mode" in 
+    1)
+        if [[ "$is_o_mode" == 0 ]]; then
+            # shift -> for not to include options as a file 
+            shift
+            declare -A job_outputs
+            for file_type in "$@"; do
+                # making temp file to track out from compilerManger
+                temp_output_file=$(mktemp)
+                # Start time for this individual compilation in nanoseconds
+                loop_start_ns=$(date +%s%N)
 
-        (
-            file="$file_type"
-            # redirect the both stdout & stderr to temp file
-            compilerManager > "$temp_output_file" 2>&1
-        ) &
-        
-        loop_end_ns=$(date +%s%N)
-        # calculate duration in nanoseconds
-        duration_ns=$(( loop_end_ns - loop_start_ns ))
-        # convert nanoseconds to milliseconds (integer division)
-        duration_ms=$(( duration_ns / 1000000 ))
-        echo "[Started in: $duration_ms ms] => $file_type"
-        # adding to the array
-        job_outputs["$file_type"]="$temp_output_file"
-    done
+                (
+                    file="$file_type"
+                    # redirect the both stdout & stderr to temp file
+                    compilerManager > "$temp_output_file" 2>&1
+                ) &
+                
+                loop_end_ns=$(date +%s%N)
+                # calculate duration in nanoseconds
+                duration_ns=$(( loop_end_ns - loop_start_ns ))
+                # convert nanoseconds to milliseconds (integer division)
+                duration_ms=$(( duration_ns / 1000000 ))
+                echo "[Started in: $duration_ms ms] => $file_type"
+                # adding to the array
+                job_outputs["$file_type"]="$temp_output_file"
+            done
 
-    # wait form compilation
-    wait
-    
-    # Process the results from temporary files
-    for file_type in "$@"; do
-        temp_output_file="${job_outputs["$file_type"]}"
-        
-        if [[ -s "$temp_output_file" ]]; then
-            compile_time_ms="$(tail -n 1 "$temp_output_file")"
-            echo "[$file_type] => Compiled success in $compile_time_ms ms!"
-        else
-            echo "[$file_type] => Compilation failed or no output!"
+            # wait form compilation
+            wait
+            
+            # Process the results from temporary files
+            for file_type in "$@"; do
+                temp_output_file="${job_outputs["$file_type"]}"
+                
+                if [[ -s "$temp_output_file" ]]; then
+                    compile_time_ms="$(tail -n 1 "$temp_output_file")"
+                    echo "[$file_type] => Compiled success in $compile_time_ms ms!"
+                else
+                    echo "[$file_type] => Compilation failed or no output!"
+                fi
+                
+                # remove the temporary file
+                rm -f "$temp_output_file"
+            done
+            exit 0
+        else 
+            echo "You cannot use -o option in parallel compilation"
+            exit 1
         fi
-        
-        # remove the temporary file
-        rm -f "$temp_output_file"
-    done
-    exit 0
-fi
+        ;;
+
+    0)
+        IFS=";" read -r folder_name file_name <<< "$(compilerManager)"
+
+        if [[ -d "$folder_name" && -e "$folder_name/$file_name" ]]; then
+            "./$folder_name/$file_name"
+        elif [[ -e "$file_name" ]]; then
+            "./$file_name"
+        elif [[ -z "$folder_name" && -z "$file_name" ]]; then
+            exit 1
+        else 
+            echo "File not exist or may have been moved!"
+            exit 1
+        fi
+        ;;
+    *)
+        echo "Invalid options"
+        exit 1
+        ;;
+esac
 
 
-IFS=";" read -r folder_name file_name <<< "$(compilerManager)"
 
-if [[ -d "$folder_name" && -e "$folder_name/$file_name" ]]; then
-    "./$folder_name/$file_name"
-elif [[ -e "$file_name" ]]; then
-    "./$file_name"
-elif [[ -z "$folder_name" && -z "$file_name" ]]; then
-    exit 1
-else 
-    echo "File not exist or may have been moved!"
-    exit 1
-fi
+
