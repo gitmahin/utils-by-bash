@@ -1,6 +1,8 @@
 # !/bin/bash
 shopt -s extglob
 
+# ISSUE pl is executing command success while there is no file
+
 # measuring compilation starting time
 start_time_ns=$(date +%s%N)
 
@@ -23,6 +25,7 @@ getOption() {
         # Remove the hyphen for easier parsing
         parsed_options="${option:1}"
 
+        # ISSUE: Correctly check that given option is available
         # =~ check if the string "pl" is found anywhere within parsed_options
         if [[ "$parsed_options" =~ "pl" ]]; then  
             is_parallel_mode=1
