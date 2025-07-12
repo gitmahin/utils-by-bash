@@ -99,6 +99,7 @@ compilerManager(){
     local compile_start_ns=$(date +%s%N)
 
     IFS=";" read -r file_name file_ext <<< "$(getFileDivision)"
+    folder_name="cpp-$file_name"
 
     # check if user given file ext is cpp or c++
     if $(isCPPFile); then
@@ -119,7 +120,7 @@ compilerManager(){
 
     # in directory mode
     if [[ "$is_d_mode" == 1 ]]; then
-        folder_name="cpp-$file_name"
+       
         current_path="$(pwd)"
         parent_folder="$(basename "$current_path")"
 
@@ -170,7 +171,7 @@ case "$is_parallel_mode" in
         if [[ "$is_o_mode" == 0 ]]; then
             # shift -> for not to include options as a file 
             shift
-            declare -A job_outputs
+            declare -A output_logs
             for file_type in "$@"; do
                 # making temp file to track out from compilerManger
                 temp_output_file=$(mktemp)
@@ -190,7 +191,7 @@ case "$is_parallel_mode" in
                 duration_ms=$(( duration_ns / 1000000 ))
                 echo "[Started in: $duration_ms ms] => $file_type"
                 # adding to the array
-                job_outputs["$file_type"]="$temp_output_file"
+                output_logs["$file_type"]="$temp_output_file"
             done
 
             # wait form compilation
@@ -198,7 +199,7 @@ case "$is_parallel_mode" in
             
             # Process the results from temporary files
             for file_type in "$@"; do
-                temp_output_file="${job_outputs["$file_type"]}"
+                temp_output_file="${output_logs["$file_type"]}"
                 
                 if [[ -s "$temp_output_file" ]]; then
                     compile_time_ms="$(tail -n 1 "$temp_output_file")"
