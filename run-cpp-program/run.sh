@@ -1,8 +1,6 @@
 # !/bin/bash
 shopt -s extglob
 
-# ISSUE pl is executing command success while there is no file
-
 # measuring compilation starting time
 start_time_ns=$(date +%s%N)
 
