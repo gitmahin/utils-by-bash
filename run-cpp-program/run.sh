@@ -48,14 +48,26 @@ isCPPFile() {
     [[ "$file" == *.cpp || "$file" == *.c++ ]] && return 0 || return 1
 }
 
+# out file validation
+isOutFile() {
+    # user validation
+    local file=$1
+    [[ "$file" == *.out ]] && return 0 || return 1
+}
+
 # extract file_name and file_ext from core file 
 getFileDivision() {
     local file=$1
     local file_name
     local file_ext
     # if name doesn't indicate to cpp file pass the file as it is
-    if ! $(isCPPFile "$file") ;then
-        echo "$file;"
+    if ! $(isCPPFile "$file"); then
+        if $(isOutFile "$file"); then
+            file_name="${file%.*}"
+            echo "$file_name;"
+        else
+            echo "$file;"
+        fi
     else
         # get value before the last .*
         file_name="${file%.*}"
@@ -86,23 +98,28 @@ compileCpp(){
             if [[ -e "$folder_name/$file" ]]; then
                 g++ "$folder_name/$file" -o "$file_name" 2> /dev/tty || exit 1
             else 
-                [[ "$is_parallel_mode" == 1 ]] && exit 1 || return 1
+                echo "File not found in the directory"; exit 1;
             fi
         else
-            # checking if user give a file with .cpp or .c++
-            if  $(isCPPFile "$file"); then
-                echo "File not exist"
-                exit 1
-            else 
-                [[ "$is_parallel_mode" == 1 ]] && exit 1 || return 1
-            fi
+       
+            echo "File not found in this location"; exit 1;
 
+        fi
+    else 
+        local file_ext="${file##*.}"
+        if [[ "$file" == *"."* && "$file_ext" == "out" ]]; then
+            return 0
+        elif [[ "$file" != *"."* && "$file_ext" != "out"  ]]; then
+            return 0
+        else 
+            echo "File is not cpp compatitable!"
+            exit 1
         fi
     fi
 }
 
 # processor
-compilerManager(){
+cppCompilerManager(){
     local compile_start_ns=$(date +%s%N)
 
     IFS=";" read -r file_name file_ext <<< "$(getFileDivision "$file")"
@@ -110,18 +127,16 @@ compilerManager(){
 
     # check if user given file ext is cpp or c++
     if  $(isCPPFile "$file"); then
-        # find the file in the system
-        # if not found try to make virtual file naming
-        # !!! CAUTION: updating $file here 
-        # swap the file ext and try to find out the file
-        # if file.cpp && not_found; then convert to file.c++ && update
-        # if file.c++ && not_found; then convert to file.cpp && update
         local folder_name="cpp-$file_name"
 
         swapFile(){
             [[ "$file" == *.cpp ]] && file="$file_name.c++" || file="$file_name.cpp"
         }
         
+        # if file exist then pass the file as it is
+        # else if not file exist in current directory, try finding via swaping file extension
+        # else not file exist in current directory then go one level up, if not exist
+        # && directory mode enabled try finding via swaping the file extension
         if [[ -e "$file" || -e "./$folder_name/$file" ]]; then
             file="$file"
         else
@@ -142,9 +157,9 @@ compilerManager(){
 
     # in directory mode
     if [[ "$is_d_mode" == 1 ]]; then
-        folder_name="cpp-$file_name"
-        current_path="$(pwd)"
-        parent_folder="$(basename "$current_path")"
+        local folder_name="cpp-$file_name"
+        local current_path="$(pwd)"
+        local parent_folder="$(basename "$current_path")"
 
         # "If the `new folder name` (f-myprogram) is NOT the same as 
         # the `current dir's name` (my-programe).
@@ -152,7 +167,7 @@ compilerManager(){
         if [[ "$folder_name" != "$parent_folder" ]]; then
             [[ ! -d "$folder_name" && -e "$file" && -e "$file_name" ]] && mkdir "$folder_name" > /dev/null 2>&1
             # dont move only stderr to null (e.g. 2> /dev/null)
-            # because the mv -v commands also printed to standard output, the entire output captured by $(compilerManager ...)
+            # because the mv -v commands also printed to standard output, the entire output captured by $(cppCompilerManager ...)
             mv -v "$file" "./$folder_name" > /dev/null 2>&1
             mv -v "$file_name" "./$folder_name" > /dev/null 2>&1
 
@@ -163,8 +178,14 @@ compilerManager(){
     # !!! CAUTION: updating $file_name here 
     # swap the output file ext and try to execute
     # if file is not exist it will virtually update the file name to guess the exec file
-    if [[ ! -e "./$folder_name/$file_name" || "$is_d_mode" == 0 && ! -e "$file_name" ]]; then
-        [[ "./$folder_name/$file_name" == *.out || "$file_name" == *.out ]] && file_name="${file_name%.*}" || file_name="$file_name"
+    # if [[ "$is_d_mode" == 0 && ! -e "$file_name" || ! -e "./$folder_name/$file_name" ]]; then
+    #     [[ "./$folder_name/$file_name" == *.out || "$file_name" == *.out ]] && file_name="${file_name%.*}" || file_name="$file_name"
+    # fi
+
+    if [[ "$is_d_mode" == 0 && ! -e "$file_name" ]]; then
+        [[ "$file_name" == *.out ]] && file_name="${file_name%.*}" || file_name="$file_name.out"
+    elif [[ "$is_d_mode" == 1 && ! -e "./$folder_name/$file_name" ]]; then
+        [[ "./$folder_name/$file_name" == *.out ]] && file_name="${file_name%.*}" || file_name="$file_name.out"
     fi
 
     # End timing for compilation here
@@ -193,7 +214,7 @@ case "$is_parallel_mode" in
      
             # shift -> for not to include options as a file 
             shift
-            declare -A job_outputs
+            declare -A temp_outputs
             for file_type in "$@"; do
                 # making temp file to track out from compilerManger
                 temp_output_file=$(mktemp)
@@ -203,7 +224,7 @@ case "$is_parallel_mode" in
                 (
                     file="$file_type"
                     # redirect the both stdout & stderr to temp file
-                    compilerManager > "$temp_output_file" 2>&1
+                    cppCompilerManager > "$temp_output_file" 2>&1
                 ) &
                 
                 loop_end_ns=$(date +%s%N)
@@ -212,8 +233,9 @@ case "$is_parallel_mode" in
                 # convert nanoseconds to milliseconds (integer division)
                 duration_ms=$(( duration_ns / 1000000 ))
                 echo "[Started in: $duration_ms ms] => $file_type"
+
                 # adding to the array
-                job_outputs["$file_type"]="$temp_output_file"
+                [[ $? != 1 ]] && temp_outputs["$file_type"]="$temp_output_file"
             done
 
             # wait form compilation
@@ -221,13 +243,17 @@ case "$is_parallel_mode" in
             
             # Process the results from temporary files
             for file_type in "$@"; do
-                temp_output_file="${job_outputs["$file_type"]}"
+                temp_output_file="${temp_outputs["$file_type"]}"
                 
                 if [[ -s "$temp_output_file" ]]; then
                     compile_time_ms="$(tail -n 1 "$temp_output_file")"
+                    if [[ "$compile_time_ms" =~ ^[0-9]+$ ]]; then
                     echo "[$file_type] => Compiled success in $compile_time_ms ms!"
+                    else
+                    echo "[$file_type] => $compile_time_ms"
+                    fi
                 else
-                    echo "[$file_type] => Compilation failed or no output!"
+                    echo "[$file_type] => $compile_time_ms"
                 fi
                 
                 # remove the temporary file
@@ -238,9 +264,10 @@ case "$is_parallel_mode" in
         ;;
 
     0)
-        result="$(compilerManager)"
+        result="$(cppCompilerManager)"
 
-        [[ "$result" =~ ";" ]] && IFS=";" read -r folder_name file_name <<< "$(compilerManager)" || echo "$result"
+        [[ "$result" =~ ";" ]] && IFS=";" read -r folder_name file_name <<< "$(cppCompilerManager)" || echo "$result"
+        # IFS=";" read -r folder_name file_name <<< "$(cppCompilerManager)"
         
         if [[ -d "$folder_name" && -e "$folder_name/$file_name" ]]; then
             "./$folder_name/$file_name"
