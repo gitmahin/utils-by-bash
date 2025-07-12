@@ -8,10 +8,8 @@ start_time_ns=$(date +%s%N)
 option="$1"
 file="$2"
 
-avaiableOptions=("-d" "-o" "-cp")
-
 # cp -> compile in parallel
-is_cp_mode=0
+is_parallel_mode=0
 
 # d -> merge .out and .cpp file into directory
 is_d_mode=0
@@ -19,19 +17,15 @@ is_d_mode=0
 # o -> run only output file
 is_o_mode=0
 
-# check input options
-[[ -z "$option" && ! " ${avaiableOptions[*]} " =~ [[:space:]]${INPUT_OPTION}[[:space:]] ]] && { echo "Invalid option $INPUT_OPTION"; exit 1; }
-
-
 getOption() {
     # find the option starting with hyphen
     if [[ "$option" == -* ]]; then
         # Remove the hyphen for easier parsing
         parsed_options="${option:1}"
 
-        # =~ check if the string "cp" is found anywhere within parsed_options
-        if [[ "$parsed_options" =~ "cp" ]]; then  
-            is_cp_mode=1
+        # =~ check if the string "pl" is found anywhere within parsed_options
+        if [[ "$parsed_options" =~ "pl" ]]; then  
+            is_parallel_mode=1
         fi
 
         if [[ "$parsed_options" =~ "d" ]]; then
@@ -42,8 +36,10 @@ getOption() {
             is_o_mode=1 
         fi
 
-        else
-            return 1
+    else
+        # if file($2) is not provided store option($1) value in file(var)
+        [[ -z "$file" ]] && file="$option"
+        return 0
     fi
 }
 
@@ -96,9 +92,6 @@ compileCpp(){
 # processor
 compilerManager(){
     local compile_start_ns=$(date +%s%N)
-    
-    # if file($2) is not provided store option($1) value in file(var)
-    [[ -z "$file" ]] && file="$option"
 
     IFS=";" read -r file_name file_ext <<< "$(getFileDivision)"
 
@@ -151,7 +144,7 @@ compilerManager(){
     local compile_duration_ms=$(( (compile_end_ns - compile_start_ns) / 1000000 ))
 
     # lastly return the folder_name and file_name
-    [[ "$is_cp_mode" == 0 ]] && echo "$folder_name;$file_name" || echo "$compile_duration_ms"
+    [[ "$is_parallel_mode" == 0 ]] && echo "$folder_name;$file_name" || echo "$compile_duration_ms"
     return 0
 }
 
@@ -167,7 +160,7 @@ if ! g++ -v &> /dev/null; then
 fi
 
 
-case "$is_cp_mode" in 
+case "$is_parallel_mode" in 
     1)
         if [[ "$is_o_mode" == 0 ]]; then
             # shift -> for not to include options as a file 
