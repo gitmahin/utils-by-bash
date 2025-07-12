@@ -85,9 +85,13 @@ compileCpp(){
         # in directory mode
         elif [[ "$is_d_mode" == 1 && ! -e "$file" ]]; then
             folder_name="cpp-$file_name"
-            g++ "$folder_name/$file" -o "$file_name" 2> /dev/tty || exit 1
+            if [[ -e "$folder_name/$file" ]]; then
+                g++ "$folder_name/$file" -o "$file_name" 2> /dev/tty || exit 1
+            else 
+                [[ "$is_parallel_mode" == 1 ]] && exit 1 || return 1
+            fi
         else
-            return 1
+            [[ "$is_parallel_mode" == 1 ]] && exit 1 || return 1
         fi
     fi
 }
