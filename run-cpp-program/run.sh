@@ -16,6 +16,19 @@ is_d_mode=0
 
 is_auto_find_file_mode=0
 
+autoFindCppFiles(){
+    local result=""
+    result=$(ls *.cpp *.c++ 2> /dev/null) 
+    [[ -z "$result" ]] && { echo "No file found!"; exit 1; }
+    echo "$result"
+}
+
+askToContinue() {
+    local choose
+    read -p "Do you want to continue? [y/n]" choose
+    [[ "$choose" == [yY] ]] && return 0 || return 1
+}
+
 getOption() {
     # find the option starting with hyphen
     if [[ "$option" == -* ]]; then
@@ -32,7 +45,7 @@ getOption() {
             is_d_mode=1
         fi
 
-        if [[ "$parsed_options" =~ "a" ]]; then
+        if [[ "$parsed_options" =~ "a" && "$parsed_options" =~ "pl" ]]; then
             is_auto_find_file_mode=1
         fi
 
@@ -221,7 +234,20 @@ case "$is_parallel_mode" in
             # shift -> for not to include options as a file 
             shift
             declare -A temp_outputs
-            for file_type in "$@"; do
+            files=""
+
+            if [[ "$is_auto_find_file_mode" == 1 ]]; then
+                
+                outputAutoResult="$(autoFindCppFiles)"
+                files=(${outputAutoResult// / })
+                echo "${files[@]}"
+
+            fi
+
+            askToContinue
+            [[ $? == 1 ]] && { echo "Operation canceled"; exit 1; }
+
+            for file_type in "${files[@]:-$@}"; do
                 # making temp file to track out from compilerManger
                 temp_output_file=$(mktemp)
                 # Start time for this individual compilation in nanoseconds
@@ -248,7 +274,7 @@ case "$is_parallel_mode" in
             wait
             
             # Process the results from temporary files
-            for file_type in "$@"; do
+            for file_type in "${files[@]:-$@}"; do
                 temp_output_file="${temp_outputs["$file_type"]}"
                 
                 if [[ -s "$temp_output_file" ]]; then
