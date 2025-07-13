@@ -19,46 +19,49 @@ is_auto_find_file_mode=0
 autoFindCppFiles(){
     local result=""
     result=$(ls *.cpp *.c++ 2> /dev/null) 
-    [[ -z "$result" ]] && { echo "No file found!"; exit 1; }
-    echo "$result"
+    [[ -z "$result" ]] && return 1 ||  echo "$result"
 }
 
-askToContinue() {
-    local choose
-    read -p "Do you want to continue? [y/n]" choose
-    [[ "$choose" == [yY] ]] && return 0 || return 1
-}
 
-getOption() {
-    # find the option starting with hyphen
-    if [[ "$option" == -* ]]; then
-        # Remove the hyphen for easier parsing
-        parsed_options="${option:1}"
+# find the option starting with hyphen
+if [[ "$option" == -* ]]; then
+    # Remove the hyphen for easier parsing
+    parsed_options="${option:1}"
 
-        # ISSUE: Correctly check that given option is available
-        # =~ check if the string "pl" is found anywhere within parsed_options
-        if [[ "$parsed_options" =~ "pl" ]]; then  
+ 
+
+    # ISSUE: Correctly check that given option is available
+    # =~ check if the string "pl" is found anywhere within parsed_options
+
+    if [[ "$parsed_options" =~ [^plda] ]]; then # Match any character NOT p,l,d,a
+        echo "Invalid options."
+        exit 1
+    fi
+
+
+        if [[ "$parsed_options" =~ "a" && "$parsed_options" =~ "pl" ]]; then
+            shift
+            [[ ! -z "$@" ]] && { echo "Too many arguments!"; exit 1; }
+            is_auto_find_file_mode=1
             is_parallel_mode=1
+        else
+            if [[ "$parsed_options" =~ "pl" ]]; then  
+                [[ -z "$@" || -z "$2" ]] && { echo "Empty arguments!"; exit 1; }
+                is_parallel_mode=1
+            fi
         fi
 
+      
+
         if [[ "$parsed_options" =~ "d" ]]; then
+            [[ -z "$@" || -z "$2" ]] && { echo "Empty arguments!"; exit 1; }
             is_d_mode=1
         fi
 
-        if [[ "$parsed_options" =~ "a" && "$parsed_options" =~ "pl" ]]; then
-            is_auto_find_file_mode=1
-        fi
-
-    else
-        # if file($2) is not provided store option($1) value in file(var)
-        [[ -z "$file" ]] && file="$option"
-        return 0
-    fi
-}
-
-# call the function
-getOption
-[[ $? == 1 ]] && { echo "Invalid options"; exit 1; }
+else
+    # if file($2) is not provided store option($1) value in file(var)
+    [[ -z "$file" ]] && file="$option"
+fi
 
 # cpp file validation
 isCPPFile() {
@@ -233,19 +236,15 @@ case "$is_parallel_mode" in
      
             # shift -> for not to include options as a file 
             shift
-            declare -A temp_outputs
+            declare -A temp_files
             files=""
 
             if [[ "$is_auto_find_file_mode" == 1 ]]; then
-                
                 outputAutoResult="$(autoFindCppFiles)"
+                [[ $? == 1 ]] && { echo "No file found in the current directory!"; exit 1; }
                 files=(${outputAutoResult// / })
-                echo "${files[@]}"
-
+                echo "Compiling: [${files[@]}]"
             fi
-
-            askToContinue
-            [[ $? == 1 ]] && { echo "Operation canceled"; exit 1; }
 
             for file_type in "${files[@]:-$@}"; do
                 # making temp file to track out from compilerManger
@@ -267,7 +266,7 @@ case "$is_parallel_mode" in
                 echo "[Started in: $duration_ms ms] => $file_type"
 
                 # adding to the array
-                [[ $? != 1 ]] && temp_outputs["$file_type"]="$temp_output_file"
+                [[ $? != 1 ]] && temp_files["$file_type"]="$temp_output_file"
             done
 
             # wait form compilation
@@ -275,7 +274,7 @@ case "$is_parallel_mode" in
             
             # Process the results from temporary files
             for file_type in "${files[@]:-$@}"; do
-                temp_output_file="${temp_outputs["$file_type"]}"
+                temp_output_file="${temp_files["$file_type"]}"
                 
                 if [[ -s "$temp_output_file" ]]; then
                     compile_time_ms="$(tail -n 1 "$temp_output_file")"
