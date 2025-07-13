@@ -14,6 +14,8 @@ is_parallel_mode=0
 # d -> merge .out and .cpp file into directory
 is_d_mode=0
 
+is_auto_find_file_mode=0
+
 getOption() {
     # find the option starting with hyphen
     if [[ "$option" == -* ]]; then
@@ -28,6 +30,10 @@ getOption() {
 
         if [[ "$parsed_options" =~ "d" ]]; then
             is_d_mode=1
+        fi
+
+        if [[ "$parsed_options" =~ "a" ]]; then
+            is_auto_find_file_mode=1
         fi
 
     else
