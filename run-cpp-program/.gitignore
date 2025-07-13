@@ -1,4 +1,3 @@
 *.log
-.example.sh
 *.cpp
 *.c++
