@@ -8,7 +8,7 @@ chmod 755 install.sh
 
 ## 🚀 Features:
 - Compiles multiple files in parallel
-- Automatically finds `.cpp` and `.c++` files using the `-apl` flag
+- Automatically finds & compiles `.cpp` and `.c++` files using the `-apl` flag
 - Get rid of vs `code runner` temp error
 - Auto-corrects file extensions:
   Typing `home.c++` will fallback to `home.cpp` if `.c++` doesn't exist (and vice versa)
