@@ -54,7 +54,12 @@ if [[ "$option" == -* ]]; then
       
 
         if [[ "$parsed_options" =~ "d" ]]; then
+        if [[ "$is_auto_find_file_mode" == 1 ]];then
+            shift
+            [[ ! -z "$@" ]] && { echo "Too many arguments. In auto directory mode, file paths are not required"; exit 1; }
+        else
             [[ -z "$@" || -z "$2" ]] && { echo "Empty arguments!"; exit 1; }
+        fi
             is_d_mode=1
         fi
 
