@@ -14,6 +14,7 @@ is_parallel_mode=0
 # d -> merge .out and .cpp file into directory
 is_d_mode=0
 
+# -a => auto cpp or c++ file finder mode
 is_auto_find_file_mode=0
 
 autoFindCppFiles(){
@@ -44,6 +45,9 @@ if [[ "$option" == -* ]]; then
             [[ ! -z "$@" ]] && { echo "Too many arguments!"; exit 1; }
             is_auto_find_file_mode=1
             is_parallel_mode=1
+        elif [[ "$parsed_options" =~ "a" && ! "$parsed_options" =~ "pl" ]]; then
+            echo "You must use -pl with -a"
+            exit 1
         else
             if [[ "$parsed_options" =~ "pl" ]]; then  
                 [[ -z "$@" || -z "$2" ]] && { echo "Empty arguments!"; exit 1; }
@@ -51,15 +55,11 @@ if [[ "$option" == -* ]]; then
             fi
         fi
 
-      
 
         if [[ "$parsed_options" =~ "d" ]]; then
-        if [[ "$is_auto_find_file_mode" == 1 ]];then
-            shift
-            [[ ! -z "$@" ]] && { echo "Too many arguments. In auto directory mode, file paths are not required"; exit 1; }
-        else
-            [[ -z "$@" || -z "$2" ]] && { echo "Empty arguments!"; exit 1; }
-        fi
+            if [[ "$is_auto_find_file_mode" != 1 ]];then
+                [[ -z "$@" || -z "$2" ]] && { echo "Empty arguments!"; exit 1; }
+            fi
             is_d_mode=1
         fi
 
@@ -128,12 +128,19 @@ compileCpp(){
                 echo "File not found in the directory"; exit 1;
             fi
         else
-       
             echo "File not found in this location"; exit 1;
-
         fi
     else 
         local file_ext="${file##*.}"
+
+        # in parallel mode active if user want to run a compiled file throw error!
+        if ! $(isCPPFile "$folder_name/$file") && [[ "$is_parallel_mode" == 1 ]]; then
+            echo "File is not compatible for compilation. Use only -d or no options to run a compiled cpp file!"
+            exit 1;
+        fi
+
+        # other wise find if file is compatitable to run
+        # if not compatitable throw error
         if [[ "$file" == *"."* && "$file_ext" == "out" ]]; then
             return 0
         elif [[ "$file" != *"."* && "$file_ext" != "out"  ]]; then
@@ -305,7 +312,7 @@ case "$is_parallel_mode" in
         [[ "$result" =~ ";" ]] && IFS=";" read -r folder_name file_name <<< "$(cppCompilerManager)" || echo "$result"
         # IFS=";" read -r folder_name file_name <<< "$(cppCompilerManager)"
         
-        if [[ -d "$folder_name" && -e "$folder_name/$file_name" ]]; then
+        if [[ "$is_d_mode" == 1 && -d "$folder_name" && -e "$folder_name/$file_name" ]]; then
             "./$folder_name/$file_name"
         elif [[ -e "$file_name" ]]; then
             "./$file_name"
