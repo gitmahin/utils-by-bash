@@ -76,6 +76,12 @@ cpprun -apld
 ⚠️ Note: When using `-apl` with `-d`, this operation is one-time only.
 If you rerun the same command, `cpprun` will throw an error with "no file found" error.
 
+
+> [!NOTE]
+> Only `-d` mode can compile and run a `.cpp` file at the same time. It can also run compiled files directly.
+> `-pl` and `-a` modes are for compilation only — they do not run the compiled file.
+
+
 ## 🧠 Smart File Handling
 - If you provide `home.c++` and the file doesn’t exist, `cpprun` will automatically check for `home.cpp` instead
 - Similarly, if you type `home.out` or just home, it will resolve and run the corresponding output file
