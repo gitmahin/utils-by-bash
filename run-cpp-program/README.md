@@ -1,6 +1,10 @@
 # `cpprun` — C++ Program Compilation Automation Tool
 
-# Installation
+
+## Prerequisite OS:
+- Linux (required)
+
+## Installation
 ```bash
 chmod 755 install.sh
 ./install.sh 
